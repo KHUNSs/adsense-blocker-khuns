@@ -1,0 +1,31 @@
+// 광고 클릭 횟수를 추적하고 3번째 클릭 시 알림창을 표시하는 코드
+(function() {
+  // 페이지가 로드될 때 실행
+  document.addEventListener('DOMContentLoaded', function() {
+    // 광고 요소 선택 (티스토리 AdSense 광고 요소에 맞게 선택자 수정 필요)
+    const adElements = document.querySelectorAll('.revenue_unit_item, .adsense, iframe[src*="googleads"], ins.adsbygoogle');
+    
+    // 현재 클릭 수 가져오기 (없으면 0으로 초기화)
+    let clickCount = parseInt(localStorage.getItem('adClickCount') || 0);
+    
+    // 각 광고 요소에 클릭 이벤트 리스너 추가
+    adElements.forEach(ad => {
+      ad.addEventListener('click', function() {
+        // 클릭할 때마다 카운터 증가
+        clickCount++;
+        localStorage.setItem('adClickCount', clickCount);
+        
+        // 3번째 클릭 시 알림창 표시
+        if (clickCount === 3) {
+          // 알림창 표시
+          if (!confirm('이 사이트에 계속 머무르시겠습니까?')) {
+            // '취소'를 누른 경우 리다이렉트
+            window.location.href = window.redirectTarget || 'https://aros100.com';
+          }
+          // 카운터 초기화
+          localStorage.setItem('adClickCount', 0);
+        }
+      });
+    });
+  });
+})();
