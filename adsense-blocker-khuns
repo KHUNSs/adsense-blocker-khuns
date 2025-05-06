@@ -1,17 +1,21 @@
-// 광고 클릭 및 새로고침 횟수를 추적하는 코드
+// 광고 클릭, 새로고침 횟수, 체류 시간을 추적하는 코드
 (function() {
   // 페이지가 로드될 때 실행
   document.addEventListener('DOMContentLoaded', function() {
-    // 광고 요소 선택 (티스토리 AdSense 광고 요소에 맞게 선택자 수정 필요)
+    // 광고 요소 선택
     const adElements = document.querySelectorAll('.revenue_unit_item, .adsense, iframe[src*="googleads"], ins.adsbygoogle');
     
-    // 현재 광고 클릭 수 가져오기 (없으면 0으로 초기화)
+    // 현재 광고 클릭 수 가져오기
     let adClickCount = parseInt(localStorage.getItem('adClickCount') || 0);
     
     // 새로고침 횟수 추적
     let refreshCount = parseInt(sessionStorage.getItem('refreshCount') || 0);
     let lastRefreshTime = parseInt(sessionStorage.getItem('lastRefreshTime') || 0);
     let currentTime = new Date().getTime();
+    
+    // 체류 시간 타이머 시작
+    let stayTimer;
+    let stayPromptShown = sessionStorage.getItem('stayPromptShown') === 'true';
     
     // 마지막 새로고침으로부터 10초 이내면 연속 새로고침으로 간주
     if (currentTime - lastRefreshTime < 10000) {
@@ -33,6 +37,23 @@
       // 새로고침 카운터 초기화
       sessionStorage.setItem('refreshCount', 0);
     }
+    
+    // 10초 후 알림창 표시 (한 세션에 한 번만)
+    if (!stayPromptShown) {
+      stayTimer = setTimeout(function() {
+        if (confirm('더 좋은 정보를 보러 가시겠습니까?')) {
+          // '확인'을 누른 경우 리다이렉트
+          window.location.href = window.redirectTarget || 'https://www.tistory.com/';
+        }
+        // 프롬프트가 표시되었음을 저장
+        sessionStorage.setItem('stayPromptShown', 'true');
+      }, 10000); // 10초
+    }
+    
+    // 페이지를 떠날 때 타이머 제거
+    window.addEventListener('beforeunload', function() {
+      clearTimeout(stayTimer);
+    });
     
     // 각 광고 요소에 클릭 이벤트 리스너 추가
     adElements.forEach(ad => {
