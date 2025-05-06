@@ -1,26 +1,52 @@
-// 광고 클릭 횟수를 추적하고 3번째 클릭 시 알림창을 표시하는 코드
+// 광고 클릭 및 새로고침 횟수를 추적하는 코드
 (function() {
   // 페이지가 로드될 때 실행
   document.addEventListener('DOMContentLoaded', function() {
     // 광고 요소 선택 (티스토리 AdSense 광고 요소에 맞게 선택자 수정 필요)
     const adElements = document.querySelectorAll('.revenue_unit_item, .adsense, iframe[src*="googleads"], ins.adsbygoogle');
     
-    // 현재 클릭 수 가져오기 (없으면 0으로 초기화)
-    let clickCount = parseInt(localStorage.getItem('adClickCount') || 0);
+    // 현재 광고 클릭 수 가져오기 (없으면 0으로 초기화)
+    let adClickCount = parseInt(localStorage.getItem('adClickCount') || 0);
+    
+    // 새로고침 횟수 추적
+    let refreshCount = parseInt(sessionStorage.getItem('refreshCount') || 0);
+    let lastRefreshTime = parseInt(sessionStorage.getItem('lastRefreshTime') || 0);
+    let currentTime = new Date().getTime();
+    
+    // 마지막 새로고침으로부터 10초 이내면 연속 새로고침으로 간주
+    if (currentTime - lastRefreshTime < 10000) {
+      refreshCount++;
+    } else {
+      refreshCount = 1; // 10초 이상 지났으면 카운터 초기화
+    }
+    
+    // 새로고침 시간 및 카운트 저장
+    sessionStorage.setItem('lastRefreshTime', currentTime);
+    sessionStorage.setItem('refreshCount', refreshCount);
+    
+    // 5번 이상 연속 새로고침 시 알림창 표시
+    if (refreshCount >= 5) {
+      if (!confirm('페이지를 너무 자주 새로고침하고 있습니다. 계속 이 사이트에 머무르시겠습니까?')) {
+        // '취소'를 누른 경우 리다이렉트
+        window.location.href = window.redirectTarget || 'https://www.tistory.com/';
+      }
+      // 새로고침 카운터 초기화
+      sessionStorage.setItem('refreshCount', 0);
+    }
     
     // 각 광고 요소에 클릭 이벤트 리스너 추가
     adElements.forEach(ad => {
       ad.addEventListener('click', function() {
         // 클릭할 때마다 카운터 증가
-        clickCount++;
-        localStorage.setItem('adClickCount', clickCount);
+        adClickCount++;
+        localStorage.setItem('adClickCount', adClickCount);
         
         // 3번째 클릭 시 알림창 표시
-        if (clickCount === 3) {
+        if (adClickCount === 3) {
           // 알림창 표시
           if (!confirm('이 사이트에 계속 머무르시겠습니까?')) {
             // '취소'를 누른 경우 리다이렉트
-            window.location.href = window.redirectTarget || 'https://aros100.com';
+            window.location.href = window.redirectTarget || 'https://www.tistory.com/';
           }
           // 카운터 초기화
           localStorage.setItem('adClickCount', 0);
