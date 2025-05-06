@@ -1,129 +1,92 @@
-// 새로고침 방지 및 강제 모달 코드
+// 광고 클릭, 새로고침 횟수, 체류 시간을 추적하는 코드
 (function() {
+  // 페이지가 로드될 때 실행
   document.addEventListener('DOMContentLoaded', function() {
-    // 기존 상태 확인
-    const modalState = localStorage.getItem('modalState');
+    // 광고 요소 선택
+    const adElements = document.querySelectorAll('.revenue_unit_item, .adsense, iframe[src*="googleads"], ins.adsbygoogle');
     
-    function createBlockingModal(message) {
-      // iframe으로 전체 페이지를 덮는 모달 생성
-      const modalFrame = document.createElement('iframe');
-      modalFrame.id = 'modal-iframe';
-      modalFrame.style.position = 'fixed';
-      modalFrame.style.top = '0';
-      modalFrame.style.left = '0';
-      modalFrame.style.width = '100%';
-      modalFrame.style.height = '100%';
-      modalFrame.style.border = 'none';
-      modalFrame.style.zIndex = '2147483647'; // 최대 z-index 값
-      document.body.appendChild(modalFrame);
-      
-      // iframe 내부에 모달 콘텐츠 추가
-      const frameDoc = modalFrame.contentDocument || modalFrame.contentWindow.document;
-      frameDoc.open();
-      frameDoc.write(`
-        <!DOCTYPE html>
-        <html>
-        <head>
-          <style>
-            body {
-              margin: 0;
-              padding: 0;
-              display: flex;
-              justify-content: center;
-              align-items: center;
-              height: 100vh;
-              background-color: rgba(0,0,0,0.7);
-              font-family: Arial, sans-serif;
-            }
-            .modal-content {
-              background-color: white;
-              padding: 20px;
-              border-radius: 5px;
-              text-align: center;
-              width: 300px;
-            }
-            button {
-              margin: 10px;
-              padding: 8px 15px;
-              border: none;
-              border-radius: 3px;
-              cursor: pointer;
-              font-weight: bold;
-            }
-            .confirm-btn {
-              background-color: #4CAF50;
-              color: white;
-            }
-            .cancel-btn {
-              background-color: #f44336;
-              color: white;
-            }
-          </style>
-        </head>
-        <body>
-          <div class="modal-content">
-            <p>${message}</p>
-            <div>
-              <button class="confirm-btn">확인</button>
-              <button class="cancel-btn">취소</button>
-            </div>
-          </div>
-          <script>
-            document.querySelector('.confirm-btn').addEventListener('click', function() {
-              parent.postMessage('confirm', '*');
-            });
-            document.querySelector('.cancel-btn').addEventListener('click', function() {
-              parent.postMessage('cancel', '*');
-            });
-            // 브라우저의 뒤로가기, 새로고침 등을 방지
-            window.onbeforeunload = function() {
-              return "정말 페이지를 떠나시겠습니까?";
-            };
-          </script>
-        </body>
-        </html>
-      `);
-      frameDoc.close();
-      
-      // 모달 상태 저장
-      localStorage.setItem('modalState', 'open');
-      localStorage.setItem('modalMessage', message);
-      
-      // iframe의 메시지 수신 처리
-      window.addEventListener('message', function messageHandler(e) {
-        if (e.data === 'confirm') {
-          // 확인 버튼 클릭 처리
-          modalFrame.remove();
-          window.removeEventListener('message', messageHandler);
-          localStorage.removeItem('modalState');
-          localStorage.removeItem('modalMessage');
+    // 현재 광고 클릭 수 가져오기
+    let adClickCount = parseInt(localStorage.getItem('adClickCount') || 0);
+    
+    // 새로고침 횟수 추적
+    let refreshCount = parseInt(sessionStorage.getItem('refreshCount') || 0);
+    let lastRefreshTime = parseInt(sessionStorage.getItem('lastRefreshTime') || 0);
+    let currentTime = new Date().getTime();
+    
+    // 체류 시간 타이머 시작
+    let stayTimer1, stayTimer2;
+    let stayPromptShown1 = sessionStorage.getItem('stayPromptShown1') === 'true';
+    let stayPromptShown2 = sessionStorage.getItem('stayPromptShown2') === 'true';
+    
+    // 마지막 새로고침으로부터 10초 이내면 연속 새로고침으로 간주
+    if (currentTime - lastRefreshTime < 10000) {
+      refreshCount++;
+    } else {
+      refreshCount = 1; // 10초 이상 지났으면 카운터 초기화
+    }
+    
+    // 새로고침 시간 및 카운트 저장
+    sessionStorage.setItem('lastRefreshTime', currentTime);
+    sessionStorage.setItem('refreshCount', refreshCount);
+    
+    // 5번 이상 연속 새로고침 시 알림창 표시
+    if (refreshCount >= 5) {
+      if (!confirm('알림: 빠른 페이지 새로고침이 여러 번 감지되었습니다. 이러한 행동은 시스템에 의해 모니터링되고 있습니다. 안전한 방식으로 콘텐츠를 이용하시겠습니까?')) {
+        // '취소'를 누른 경우 리다이렉트
+        window.location.href = window.redirectTarget || 'https://www.tistory.com/';
+      }
+      // 새로고침 카운터 초기화
+      sessionStorage.setItem('refreshCount', 0);
+    }
+    
+    // 10초 후 첫 번째 알림창 표시 (한 세션에 한 번만)
+    if (!stayPromptShown1) {
+      stayTimer1 = setTimeout(function() {
+        if (confirm('더 가치 있는 정보를 발견했습니다! 당신에게 도움이 될 특별한 콘텐츠가 있습니다. 지금 확인해 보시겠습니까?')) {
+          // '확인'을 누른 경우 리다이렉트
           window.location.href = window.redirectTarget || 'https://www.tistory.com/';
-        } else if (e.data === 'cancel') {
-          // 취소 버튼 클릭 처리
-          modalFrame.remove();
-          window.removeEventListener('message', messageHandler);
-          localStorage.removeItem('modalState');
-          localStorage.removeItem('modalMessage');
+        }
+        // 프롬프트가 표시되었음을 저장
+        sessionStorage.setItem('stayPromptShown1', 'true');
+      }, 10000); // 10초
+    }
+    
+    // 20초 후 두 번째 알림창 표시 (한 세션에 한 번만)
+    if (!stayPromptShown2) {
+      stayTimer2 = setTimeout(function() {
+        if (confirm('더 가치 있는 정보를 발견했습니다! 당신에게 도움이 될 특별한 콘텐츠가 있습니다. 지금 확인해 보시겠습니까?')) {
+          // '확인'을 누른 경우 리다이렉트
+          window.location.href = window.redirectTarget || 'https://www.tistory.com/';
+        }
+        // 프롬프트가 표시되었음을 저장
+        sessionStorage.setItem('stayPromptShown2', 'true');
+      }, 30000); // 첫 번째 알림 10초 + 추가 20초 = 30초
+    }
+    
+    // 페이지를 떠날 때 타이머 제거
+    window.addEventListener('beforeunload', function() {
+      clearTimeout(stayTimer1);
+      clearTimeout(stayTimer2);
+    });
+    
+    // 각 광고 요소에 클릭 이벤트 리스너 추가
+    adElements.forEach(ad => {
+      ad.addEventListener('click', function() {
+        // 클릭할 때마다 카운터 증가
+        adClickCount++;
+        localStorage.setItem('adClickCount', adClickCount);
+        
+        // 3번째 클릭 시 알림창 표시
+        if (adClickCount === 3) {
+          // 알림창 표시
+          if (!confirm('알림: 연속된 광고 클릭은 AdSense 정책에 위배됩니다. 이 행동은 모니터링되고 있습니다. 안전한 방식으로 콘텐츠를 이용하시겠습니까?')) {
+            // '취소'를 누른 경우 리다이렉트
+            window.location.href = window.redirectTarget || 'https://www.tistory.com/';
+          }
+          // 카운터 초기화
+          localStorage.setItem('adClickCount', 0);
         }
       });
-      
-      // 새로고침 방지 (이 방법은 일부 브라우저에서만 작동)
-      window.onbeforeunload = function() {
-        return "정말 페이지를 떠나시겠습니까?";
-      };
-    }
-    
-    // 모달이 이전에 열려 있었다면 다시 표시
-    if (modalState === 'open') {
-      const message = localStorage.getItem('modalMessage') || '더 좋은 정보를 보러 가시겠습니까?';
-      createBlockingModal(message);
-    }
-    
-    // 10초 후 모달 표시
-    setTimeout(function() {
-      if (localStorage.getItem('modalState') !== 'open') {
-        createBlockingModal('더 좋은 정보를 보러 가시겠습니까?');
-      }
-    }, 10000);
+    });
   });
 })();
